@@ -45,5 +45,5 @@ def unitree_g1_ulc_ppo_runner_cfg() -> UlcOnPolicyRunnerCfg:
     num_steps_per_env=24,
     max_iterations=10_000,
     save_interval=50,
-    wandb_tags=("ulc", "g1", "flat"),
+    wandb_tags=("ulc", "g1"),
   )
