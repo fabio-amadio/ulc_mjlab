@@ -33,3 +33,6 @@ Play a trained checkpoint with the stock mjlab viewers:
 ```bash
 uv run play Mjlab-ULC-Flat-Unitree-G1 --wandb-run-path your-org/project/run-id
 ```
+
+When `--wandb-run-path` is provided, `play` automatically restores the latest
+logged curriculum alphas from the W&B run summary.

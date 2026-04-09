@@ -10,8 +10,14 @@ from mjlab.envs import ManagerBasedRlEnv
 from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
 from mjlab.tasks.registry import list_tasks, load_env_cfg, load_rl_cfg, load_runner_cls
 
+import ulc_mjlab
 from ulc_mjlab.rl import UlcOnPolicyRunner
-from ulc_mjlab.utils import get_wandb_checkpoint_path as ulc_get_wandb_checkpoint_path
+from ulc_mjlab.utils import (
+  get_wandb_checkpoint_path as ulc_get_wandb_checkpoint_path,
+)
+from ulc_mjlab.utils import (
+  get_wandb_curriculum_alphas as ulc_get_wandb_curriculum_alphas,
+)
 
 
 def test_ulc_task_registration() -> None:
@@ -132,6 +138,13 @@ def test_ulc_patches_mjlab_wandb_checkpoint_resolution() -> None:
   assert mjlab_play.get_wandb_checkpoint_path is ulc_get_wandb_checkpoint_path
 
 
+def test_ulc_patches_play_run_play_for_curriculum_loading() -> None:
+  import mjlab.scripts.play as mjlab_play
+
+  assert getattr(mjlab_play, "_ulc_play_curriculum_patched", False) is True
+  assert hasattr(mjlab_play.run_play, "__wrapped__")
+
+
 def test_ulc_wandb_checkpoint_path_supports_model_latest(
   tmp_path: Path, monkeypatch
 ) -> None:
@@ -173,6 +186,52 @@ def test_ulc_wandb_checkpoint_path_supports_model_latest(
   assert checkpoint_path == tmp_path / "wandb_checkpoints" / "run-123" / "model_latest.pt"
   assert checkpoint_path.read_text() == "checkpoint"
   assert was_cached is False
+
+
+def test_ulc_wandb_curriculum_alpha_resolution(monkeypatch) -> None:
+  class FakeWandbRun:
+    summary = {
+      "Curriculum/skills/alpha_height": 0.35,
+      "Curriculum/skills/alpha_upper": 0.10,
+    }
+
+  class FakeWandbApi:
+    def run(self, run_path: str) -> FakeWandbRun:
+      assert run_path == "entity/project/run-123"
+      return FakeWandbRun()
+
+  fake_wandb = types.SimpleNamespace(Api=lambda: FakeWandbApi())
+  monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
+
+  alpha_height, alpha_upper = ulc_get_wandb_curriculum_alphas(
+    "entity/project/run-123"
+  )
+
+  assert alpha_height == 0.35
+  assert alpha_upper == 0.10
+
+
+def test_ulc_temporary_play_curriculum_uses_wandb_run_path(monkeypatch) -> None:
+  import mjlab.tasks.registry as mjlab_registry
+
+  task_id = "Mjlab-ULC-Flat-Unitree-G1"
+  registry_entry = mjlab_registry._REGISTRY[task_id]
+  ulc_command = registry_entry.play_env_cfg.commands["ulc"]
+  original_alpha_height = ulc_command.alpha_height_init
+  original_alpha_upper = ulc_command.alpha_upper_init
+
+  monkeypatch.setattr(ulc_mjlab, "_get_wandb_curriculum_alphas", lambda _: (0.25, 0.15))
+
+  cfg = types.SimpleNamespace(
+    wandb_run_path="entity/project/run-123",
+  )
+
+  with ulc_mjlab._temporary_ulc_play_curriculum(task_id, cfg):
+    assert ulc_command.alpha_height_init == 0.25
+    assert ulc_command.alpha_upper_init == 0.15
+
+  assert ulc_command.alpha_height_init == original_alpha_height
+  assert ulc_command.alpha_upper_init == original_alpha_upper
 
 
 def test_ulc_runner_uploads_only_latest_checkpoint(tmp_path: Path) -> None:

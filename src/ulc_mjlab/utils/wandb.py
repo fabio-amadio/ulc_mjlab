@@ -58,3 +58,21 @@ def get_wandb_checkpoint_path(
     wandb_file.download(str(download_dir), replace=True)
 
   return checkpoint_path, was_cached
+
+
+def get_wandb_curriculum_alphas(
+  run_path: str | Path,
+) -> tuple[float | None, float | None]:
+  """Get the latest logged curriculum alphas from a W&B run summary."""
+  import wandb
+
+  api = wandb.Api()
+  wandb_run = api.run(str(run_path))
+  summary = wandb_run.summary
+
+  alpha_height = summary.get("Curriculum/skills/alpha_height")
+  alpha_upper = summary.get("Curriculum/skills/alpha_upper")
+
+  alpha_height = None if alpha_height is None else float(alpha_height)
+  alpha_upper = None if alpha_upper is None else float(alpha_upper)
+  return alpha_height, alpha_upper
