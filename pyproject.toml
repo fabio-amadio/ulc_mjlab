@@ -26,9 +26,6 @@ dev = [
   "ruff>=0.14.14",
 ]
 
-[tool.uv.sources]
-mjlab = { path = "../mjlab", editable = true }
-
 [tool.ruff]
 src = ["src", "tests"]
 indent-width = 2
