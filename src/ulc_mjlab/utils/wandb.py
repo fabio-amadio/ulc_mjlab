@@ -24,13 +24,13 @@ def get_wandb_checkpoint_path(
   has_latest = "model_latest.pt" in files
 
   if checkpoint_name is None:
-    if numbered_files:
+    if has_latest:
+      checkpoint_file = "model_latest.pt"
+    elif numbered_files:
       checkpoint_file = max(
         numbered_files,
         key=lambda name: int(name.split("_")[1].split(".")[0]),
       )
-    elif has_latest:
-      checkpoint_file = "model_latest.pt"
     else:
       raise ValueError(
         f"No checkpoint found in run {run_path}. "
@@ -51,8 +51,10 @@ def get_wandb_checkpoint_path(
     checkpoint_file = checkpoint_name
 
   checkpoint_path = download_dir / checkpoint_file
-  was_cached = checkpoint_path.exists()
-  if not was_cached:
+  refresh_latest = checkpoint_file == "model_latest.pt"
+  was_cached = checkpoint_path.exists() and not refresh_latest
+
+  if refresh_latest or not was_cached:
     download_dir.mkdir(parents=True, exist_ok=True)
     wandb_file = wandb_run.file(str(checkpoint_file))
     wandb_file.download(str(download_dir), replace=True)
