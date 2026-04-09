@@ -38,6 +38,26 @@ def _single_body_index(body_cfg: SceneEntityCfg) -> int:
   return body_cfg.body_ids[0]
 
 
+def _joint_ids_and_matching_actuator_ids(
+  asset: Entity,
+  asset_cfg: SceneEntityCfg,
+) -> tuple[torch.Tensor | slice, list[int]]:
+  joint_ids = asset_cfg.joint_ids
+  if isinstance(joint_ids, slice):
+    joint_names = tuple(asset.joint_names)
+  else:
+    joint_names = tuple(asset.joint_names[joint_id] for joint_id in joint_ids)
+
+  actuator_ids, actuator_names = asset.find_actuators(joint_names, preserve_order=True)
+  if tuple(actuator_names) != joint_names:
+    raise ValueError(
+      "Expected a one-to-one mapping between joint names and actuator names "
+      f"for {joint_names}, got {tuple(actuator_names)}."
+    )
+
+  return joint_ids, actuator_ids
+
+
 def _torso_relative_zxy(
   asset: Entity,
   torso_body_cfg: SceneEntityCfg,
@@ -183,8 +203,9 @@ def mechanical_power_abs(
   asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
 ) -> torch.Tensor:
   asset: Entity = env.scene[asset_cfg.name]
-  torque = asset.data.qfrc_actuator[:, asset_cfg.joint_ids]
-  velocity = asset.data.joint_vel[:, asset_cfg.joint_ids]
+  joint_ids, actuator_ids = _joint_ids_and_matching_actuator_ids(asset, asset_cfg)
+  torque = asset.data.actuator_force[:, actuator_ids]
+  velocity = asset.data.joint_vel[:, joint_ids]
   return torch.sum(torch.abs(torque * velocity), dim=1)
 
 
@@ -225,11 +246,21 @@ class joint_effort_limit_cost:
       cfg.params["asset_cfg"].joint_names,
       preserve_order=True,
     )
+    actuator_ids, actuator_names = asset.find_actuators(
+      joint_names,
+      preserve_order=True,
+    )
+    if tuple(actuator_names) != tuple(joint_names):
+      raise ValueError(
+        "Expected waist actuator names to match joint names, "
+        f"got joints={tuple(joint_names)} and actuators={tuple(actuator_names)}."
+      )
     _, _, limits = resolve_matching_names_values(
       cfg.params["limits"],
       joint_names,
     )
     self._joint_ids = joint_ids
+    self._actuator_ids = actuator_ids
     self._limits = torch.tensor(limits, device=env.device, dtype=torch.float32)
     self._soft_ratio = cfg.params.get("soft_ratio", 0.999)
 
@@ -242,7 +273,7 @@ class joint_effort_limit_cost:
   ) -> torch.Tensor:
     del asset_cfg, limits, soft_ratio
     asset: Entity = env.scene[self._asset_name]
-    torque = torch.abs(asset.data.qfrc_actuator[:, self._joint_ids])
+    torque = torch.abs(asset.data.actuator_force[:, self._actuator_ids])
     excess = torch.clamp(torque - self._soft_ratio * self._limits, min=0.0)
     return torch.sum(excess, dim=1)
 
