@@ -13,6 +13,12 @@ from mjlab.tasks.velocity.rl import VelocityOnPolicyRunner
 class UlcOnPolicyRunner(VelocityOnPolicyRunner):
   """Velocity runner with rolling-latest checkpoint uploads."""
 
+  @staticmethod
+  def _get_export_paths(checkpoint_path: str) -> tuple[Path, str, Path]:
+    export_dir = Path(checkpoint_path).parent
+    filename = f"{export_dir.name}.onnx"
+    return export_dir, filename, export_dir / filename
+
   def _upload_model_mode(self) -> str:
     mode = str(self.cfg.get("upload_model_mode", "rolling_latest"))
     if mode not in {"all", "rolling_latest"}:
