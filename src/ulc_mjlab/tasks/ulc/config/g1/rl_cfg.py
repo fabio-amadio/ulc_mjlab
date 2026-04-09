@@ -41,9 +41,10 @@ def unitree_g1_ulc_ppo_runner_cfg() -> UlcOnPolicyRunnerCfg:
       desired_kl=0.01,
       max_grad_norm=1.0,
     ),
-    experiment_name="g1_ulc_flat",
+    experiment_name="g1_ulc",
+    wandb_project="ulc_mjlab",
     num_steps_per_env=24,
     max_iterations=10_000,
     save_interval=50,
-    wandb_tags=("ulc", "g1"),
+    wandb_tags=("ulc", "g1", ),
   )
