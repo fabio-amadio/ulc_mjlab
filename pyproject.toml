@@ -1,0 +1,41 @@
+[build-system]
+requires = ["uv_build>=0.8.19,<0.9.0"]
+build-backend = "uv_build"
+
+[project]
+name = "ulc-mjlab"
+version = "0.1.0"
+description = "Standalone mjlab task package implementing the flat ULC humanoid controller."
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.10,<3.14"
+license = "Apache-2.0"
+authors = [
+  { name = "OpenAI Codex" },
+]
+dependencies = [
+  "mjlab==1.2.0",
+  "torch==2.10.0",
+]
+
+[project.entry-points."mjlab.tasks"]
+ulc_mjlab = "ulc_mjlab.tasks"
+
+[dependency-groups]
+dev = [
+  "pytest>=9.0.2",
+  "ruff>=0.14.14",
+]
+
+[tool.uv.sources]
+mjlab = { path = "../mjlab", editable = true }
+
+[tool.ruff]
+src = ["src", "tests"]
+indent-width = 2
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B"]
+ignore = ["B011"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
