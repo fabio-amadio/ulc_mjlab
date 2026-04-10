@@ -46,11 +46,6 @@ class SequentialSkillCurriculum:
     env_ids: torch.Tensor | slice | None,
     **_kwargs: object,
   ):
-    self._command.set_curriculum(
-      alpha_height=self._command.alpha_height,
-      alpha_upper=self._command.alpha_upper,
-    )
-
     if isinstance(env_ids, torch.Tensor) and len(env_ids) > 0:
       step_count = torch.clamp(
         env.metrics_manager._step_count[env_ids].float(),
@@ -91,10 +86,6 @@ class SequentialSkillCurriculum:
       self._window_count = 0
       self._last_update_step = env.common_step_counter
 
-    self._command.set_curriculum(
-      alpha_height=self._command.alpha_height,
-      alpha_upper=self._command.alpha_upper,
-    )
     return {
       "alpha_height": self._command.alpha_height,
       "alpha_upper": self._command.alpha_upper,

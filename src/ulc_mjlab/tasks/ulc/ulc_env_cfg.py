@@ -51,6 +51,7 @@ def make_ulc_env_cfg() -> ManagerBasedRlEnvCfg:
     ),
   }
 
+  # TODO: add priviliged terms to critic group
   critic_terms = {
     "base_ang_vel": ObservationTermCfg(
       func=envs_mdp.builtin_sensor,
@@ -182,11 +183,7 @@ def make_ulc_env_cfg() -> ManagerBasedRlEnvCfg:
       params={
         "asset_cfg": SceneEntityCfg("robot", geom_names=()),
         "operation": "abs",
-        "ranges": {
-          0: (0.7, 1.0),
-          1: (0.4, 0.7),
-          2: (0.0, 0.005),
-        },
+        "ranges": (0.3, 1.2),
         "shared_random": True,
       },
     ),
@@ -414,7 +411,7 @@ def make_ulc_env_cfg() -> ManagerBasedRlEnvCfg:
     sim=SimulationCfg(
       njmax=300,
       contact_sensor_maxmatch=64,
-      nconmax=None,
+      nconmax=50,
       mujoco=MujocoCfg(
         timestep=0.005,
         iterations=10,

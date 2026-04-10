@@ -121,10 +121,6 @@ class ULCCommand(CommandTerm):
   def arm_command_abs(self) -> torch.Tensor:
     return self.default_arm_joint_pos + self.arm_command_rel
 
-  def set_curriculum(self, *, alpha_height: float, alpha_upper: float) -> None:
-    self.alpha_height = float(alpha_height)
-    self.alpha_upper = float(alpha_upper)
-
   def compute(self, dt: float) -> None:
     self._last_dt = dt
     super().compute(dt)
