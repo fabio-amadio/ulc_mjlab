@@ -211,7 +211,7 @@ class ULCCommand(CommandTerm):
     self._arm_theoretical_prev_rel = theoretical_arm_rel
 
   def _debug_vis_impl(self, visualizer: "DebugVisualizer") -> None:
-    """Draw velocity command and actual velocity arrows."""
+    """Draw velocity arrows plus height markers."""
     env_indices = visualizer.get_env_indices(self.num_envs)
     if not env_indices:
       return
@@ -224,6 +224,8 @@ class ULCCommand(CommandTerm):
 
     scale = self.cfg.viz.scale
     z_offset = self.cfg.viz.z_offset
+    height_sphere_radius = max(0.02, 0.04 * float(visualizer.meansize))
+    height_marker_offset_b = np.array([-0.10, 0.0, 0.0], dtype=np.float64)
 
     for batch in env_indices:
       base_pos_w = base_pos_ws[batch]
@@ -272,4 +274,22 @@ class ULCCommand(CommandTerm):
       )
       visualizer.add_arrow(
         act_ang_from, act_ang_to, color=(0.0, 1.0, 0.4, 0.7), width=0.015
+      )
+
+      height_marker_base_pos = local_to_world(height_marker_offset_b)
+
+      current_height_pos = height_marker_base_pos.copy()
+      current_height_pos[2] = float(base_pos_w[2])
+      visualizer.add_sphere(
+        current_height_pos,
+        radius=height_sphere_radius,
+        color=(0.0, 0.9, 1.0, 0.9),
+      )
+
+      cmd_height_pos = height_marker_base_pos.copy()
+      cmd_height_pos[2] = float(self.height_command[batch, 0])
+      visualizer.add_sphere(
+        cmd_height_pos,
+        radius=height_sphere_radius,
+        color=(1.0, 0.55, 0.1, 0.85),
       )
