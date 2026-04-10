@@ -1,7 +1,11 @@
 """Unitree G1 flat ULC environment configuration."""
 
+from copy import deepcopy
+
+from mjlab.actuator import BuiltinPositionActuatorCfg
 from mjlab.asset_zoo.robots import G1_ACTION_SCALE, get_g1_robot_cfg
 from mjlab.asset_zoo.robots.unitree_g1.g1_constants import FULL_COLLISION_WITHOUT_SELF
+from mjlab.entity import EntityArticulationInfoCfg
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.managers.observation_manager import ObservationGroupCfg
 from mjlab.sensor import ContactMatch, ContactSensorCfg
@@ -43,15 +47,86 @@ WAIST_EFFORT_LIMITS = {
   "waist_roll_joint": 50.0,
   "waist_pitch_joint": 50.0,
 }
+G1_KP_OVERRIDES = {
+  ".*_hip_yaw_joint": 100.0,
+  ".*_hip_roll_joint": 100.0,
+  ".*_hip_pitch_joint": 100.0,
+  ".*_knee_joint": 200.0,
+  ".*_ankle_pitch_joint": 20.0,
+  ".*_ankle_roll_joint": 20.0,
+  "waist_yaw_joint": 300.0,
+  "waist_roll_joint": 300.0,
+  "waist_pitch_joint": 300.0,
+  ".*_shoulder_pitch_joint": 90.0,
+  ".*_shoulder_roll_joint": 60.0,
+  ".*_shoulder_yaw_joint": 20.0,
+  ".*_elbow_joint": 60.0,
+  ".*_wrist_roll_joint": 4.0,
+  ".*_wrist_pitch_joint": 4.0,
+  ".*_wrist_yaw_joint": 4.0,
+}
+G1_KD_OVERRIDES = {
+  ".*_hip_yaw_joint": 2.5,
+  ".*_hip_roll_joint": 2.5,
+  ".*_hip_pitch_joint": 2.5,
+  ".*_knee_joint": 5.0,
+  ".*_ankle_pitch_joint": 0.2,
+  ".*_ankle_roll_joint": 0.1,
+  "waist_yaw_joint": 5.0,
+  "waist_roll_joint": 5.0,
+  "waist_pitch_joint": 5.0,
+  ".*_shoulder_pitch_joint": 2.0,
+  ".*_shoulder_roll_joint": 1.0,
+  ".*_shoulder_yaw_joint": 0.4,
+  ".*_elbow_joint": 1.0,
+  ".*_wrist_roll_joint": 0.2,
+  ".*_wrist_pitch_joint": 0.2,
+  ".*_wrist_yaw_joint": 0.2,
+}
+ULC_ACTION_SCALE = 0.25
+
+
+def _validate_g1_override_keys(overrides: dict[str, float], name: str) -> None:
+  unknown = sorted(set(overrides) - set(G1_ACTION_SCALE))
+  if unknown:
+    raise KeyError(
+      f"Unknown G1 {name} override keys: {unknown}. "
+      "Use the upstream G1 regex keys from mjlab.asset_zoo.robots.G1_ACTION_SCALE."
+    )
+
+
+def _make_g1_falcon_actuators(
+  base_actuators: tuple[BuiltinPositionActuatorCfg, ...],
+) -> tuple[BuiltinPositionActuatorCfg, ...]:
+  actuators: list[BuiltinPositionActuatorCfg] = []
+
+  for actuator_cfg in base_actuators:
+    for target_expr in actuator_cfg.target_names_expr:
+      base_cfg = deepcopy(actuator_cfg)
+      base_cfg.target_names_expr = (target_expr,)
+      if target_expr in G1_KP_OVERRIDES:
+        base_cfg.stiffness = G1_KP_OVERRIDES[target_expr]
+      if target_expr in G1_KD_OVERRIDES:
+        base_cfg.damping = G1_KD_OVERRIDES[target_expr]
+      actuators.append(base_cfg)
+
+  return tuple(actuators)
 
 
 def unitree_g1_flat_ulc_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   """Create the Unitree G1 flat-ground ULC task configuration."""
 
   cfg = make_ulc_env_cfg()
+  _validate_g1_override_keys(G1_KP_OVERRIDES, "Kp")
+  _validate_g1_override_keys(G1_KD_OVERRIDES, "Kd")
 
   robot_cfg = get_g1_robot_cfg()
   robot_cfg.collisions = (FULL_COLLISION_WITHOUT_SELF,)
+  assert robot_cfg.articulation is not None
+  robot_cfg.articulation = EntityArticulationInfoCfg(
+    actuators=_make_g1_falcon_actuators(robot_cfg.articulation.actuators),
+    soft_joint_pos_limit_factor=robot_cfg.articulation.soft_joint_pos_limit_factor,
+  )
   cfg.scene.entities = {"robot": robot_cfg}
   cfg.viewer.body_name = TORSO_BODY_NAME
 
@@ -114,7 +189,7 @@ def unitree_g1_flat_ulc_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
   joint_pos_action = cfg.actions["joint_pos"]
   assert isinstance(joint_pos_action, UlcJointPositionActionCfg)
-  joint_pos_action.scale = G1_ACTION_SCALE
+  joint_pos_action.scale = ULC_ACTION_SCALE
   joint_pos_action.arm_joint_names = ARM_JOINT_NAMES
 
   ulc_command = cfg.commands["ulc"]
